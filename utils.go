@@ -2,6 +2,9 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
+	"net"
+	"time"
 )
 
 // getSSLVersion will return the string name for a tls constant version number
@@ -62,6 +65,54 @@ func getCipher(c uint16) string {
 	}
 
 	return "Unknown Cipher"
+}
+
+// protocolScan creates a go routine to test a connection for a particular protocol
+// It also creates a channel to return the results to func main
+func protocolScan(p uint16, host string) <-chan string {
+	c := make(chan string)
+
+	//
+	go func(p uint16, host string) {
+
+		var rs string
+
+		//
+		dialConfig := &net.Dialer{
+			DualStack: true,
+			Timeout:   (time.Second * 10),
+		}
+
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify:       true,
+			PreferServerCipherSuites: true,
+			MinVersion:               p,
+			MaxVersion:               p,
+		}
+
+		tlsconn, err := tls.DialWithDialer(dialConfig, "tcp", host, tlsConfig)
+
+		if err != nil {
+			rs = fmt.Sprintf("Failed - Protocol %s: Error: %s", getSSLVersion(p), err.Error())
+		} else {
+
+			cs := tlsconn.ConnectionState()
+
+			if cs.HandshakeComplete == true {
+				rs = fmt.Sprintf("Connected - Protocol: %s\tCipher: %s", getSSLVersion(cs.Version), getCipher(cs.CipherSuite))
+			} else {
+				rs = fmt.Sprintf("Error - TLS Handshake not completed. Unable to get connection details")
+			}
+			tlsconn.Close()
+		}
+
+		// goroutine has done its work so return the result
+		c <- rs
+
+	}(p, host)
+
+	return c
+
 }
 
 /*
