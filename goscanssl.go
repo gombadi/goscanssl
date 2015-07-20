@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 )
 
 type goscanssl struct {
@@ -12,8 +13,33 @@ type goscanssl struct {
 	port    string
 	cert    bool
 	conn    bool
+	expire  bool
 	all     bool
 	verbose bool
+}
+
+// showExpire will display one csv line showing the certificate expire date and any DNS
+func showExpire(config *goscanssl) {
+
+	tlscert, err := tls.Dial("tcp", config.host+":"+config.port, &tls.Config{InsecureSkipVerify: true})
+
+	if err != nil {
+		fmt.Printf("Unable to get Certificate details: %s\n", err.Error())
+		return
+	}
+
+	if cert := tlscert.ConnectionState().PeerCertificates[0]; cert != nil {
+
+		fmt.Printf("%s,%dhrs,", cert.NotAfter.String(), int(cert.NotAfter.Sub(time.Now()).Hours()))
+
+		if len(cert.DNSNames) > 0 {
+			for _, dnsname := range cert.DNSNames {
+				fmt.Printf("%s,", dnsname)
+			}
+		}
+		fmt.Printf("\n")
+	}
+	tlscert.Close()
 }
 
 // scanCert will display information about the SSL certificate presented by the remote host
@@ -94,17 +120,23 @@ func main() {
 
 	var config goscanssl
 
-	flag.BoolVar(&config.conn, "conn", false, "Display Connection Info")
-	flag.BoolVar(&config.cert, "cert", false, "Display Certificate Info")
-	flag.BoolVar(&config.all, "a", false, "Display all Info")
+	flag.BoolVar(&config.conn, "conn", false, "Display Connection info")
+	flag.BoolVar(&config.cert, "cert", false, "Display Certificate info")
+	flag.BoolVar(&config.all, "a", false, "Display all info")
+	flag.BoolVar(&config.expire, "e", false, "Display Certificate expire info in CSV format")
 	flag.StringVar(&config.host, "h", "", "Remote host to test")
-	flag.StringVar(&config.port, "p", "443", "Port to connect to. Default port: 443")
+	flag.StringVar(&config.port, "p", "443", "Remote port to connect to.")
 	flag.BoolVar(&config.verbose, "v", false, "Display verbose output")
 	flag.Parse()
 
 	if config.host == "" {
 		fmt.Printf("Error: No host provided\n")
 		os.Exit(1)
+	}
+
+	if config.expire == true {
+		showExpire(&config)
+		os.Exit(0)
 	}
 
 	if config.conn == false && config.cert == false {
