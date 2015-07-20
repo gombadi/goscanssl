@@ -1,3 +1,20 @@
+/*
+Package main provides a small cli application to display information about SSL connections and certificates.
+
+Usage of goscanssl:
+  -a    Display all info
+  -cert
+        Display Certificate info
+  -conn
+        Display Connection info
+  -e    Display Certificate expire info in CSV format
+  -h string
+        Remote host to test
+  -p string
+        Remote port to connect to. (default "443")
+  -v    Display verbose output
+
+*/
 package main
 
 import (
@@ -8,6 +25,7 @@ import (
 	"time"
 )
 
+// goscanssl contains all the application config data
 type goscanssl struct {
 	host    string
 	port    string
@@ -18,7 +36,8 @@ type goscanssl struct {
 	verbose bool
 }
 
-// showExpire will display one csv line showing the certificate expire date and any DNS
+// showExpire will display one csv line showing the certificate expire date and any
+// DNS Names associated with the certificate
 func showExpire(config *goscanssl) {
 
 	tlscert, err := tls.Dial("tcp", config.host+":"+config.port, &tls.Config{InsecureSkipVerify: true})
@@ -97,7 +116,7 @@ func scanCert(config *goscanssl) {
 	tlscert.Close()
 }
 
-// scanProtocol will test connections to remote host with each SSL/TLS protocol available
+// scanProtocol will test SSL connections to remote host with each SSL/TLS protocol available
 // and display the results
 func scanProtocol(host string) {
 
@@ -115,7 +134,7 @@ func scanProtocol(host string) {
 
 }
 
-//
+// main is the application start point
 func main() {
 
 	var config goscanssl
